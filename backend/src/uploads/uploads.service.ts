@@ -1,12 +1,19 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  CreateBucketCommand,
+  HeadBucketCommand,
+} from '@aws-sdk/client-s3';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 
 @Injectable()
 export class UploadsService implements OnModuleInit {
+  private readonly logger = new Logger(UploadsService.name);
   private s3: S3Client;
   private bucket: string;
 
@@ -15,7 +22,7 @@ export class UploadsService implements OnModuleInit {
     private prisma: PrismaService,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     this.bucket = this.config.get('MINIO_BUCKET_NAME', 'justiceflow');
     this.s3 = new S3Client({
       endpoint: `http://${this.config.getOrThrow('MINIO_ENDPOINT')}:${this.config.getOrThrow('MINIO_PORT')}`,
@@ -26,6 +33,17 @@ export class UploadsService implements OnModuleInit {
       },
       forcePathStyle: true,
     });
+
+    await this.ensureBucketExists();
+  }
+
+  private async ensureBucketExists() {
+    try {
+      await this.s3.send(new HeadBucketCommand({ Bucket: this.bucket }));
+    } catch {
+      await this.s3.send(new CreateBucketCommand({ Bucket: this.bucket }));
+      this.logger.log(`Created MinIO bucket: ${this.bucket}`);
+    }
   }
 
   async uploadFile(file: Express.Multer.File, caseId: string, officerId: string) {
