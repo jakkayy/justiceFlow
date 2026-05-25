@@ -1,7 +1,9 @@
-import { Body, Controller, Headers, HttpCode, Post, UnauthorizedException } from '@nestjs/common';
+import { Controller, Headers, HttpCode, Post, Req, UnauthorizedException } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LineService } from './line.service';
 import * as crypto from 'crypto';
+import type { Request } from 'express';
 
 @Controller('line')
 export class LineController {
@@ -13,16 +15,19 @@ export class LineController {
   @Post('webhook')
   @HttpCode(200)
   async webhook(
-    @Body() body: { events: any[] },
+    @Req() req: RawBodyRequest<Request>,
     @Headers('x-line-signature') signature: string,
   ) {
-    const secret = this.config.get<string>('LINE_CHANNEL_SECRET');
-    const bodyStr = JSON.stringify(body);
-    const hash = crypto.createHmac('sha256', secret).update(bodyStr).digest('base64');
+    const secret = this.config.getOrThrow<string>('LINE_CHANNEL_SECRET');
+    const rawBody = req.rawBody;
 
+    if (!rawBody) throw new UnauthorizedException('Missing body');
+
+    const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
     if (hash !== signature) throw new UnauthorizedException('Invalid signature');
 
-    await this.lineService.handleWebhook(body.events);
+    const body = JSON.parse(rawBody.toString()) as { events: any[] };
+    await this.lineService.handleWebhook(body.events ?? []);
     return { status: 'ok' };
   }
 }

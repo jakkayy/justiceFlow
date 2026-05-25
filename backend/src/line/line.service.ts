@@ -19,7 +19,7 @@ export class LineService {
     private casesService: CasesService,
   ) {
     this.client = new messagingApi.MessagingApiClient({
-      channelAccessToken: this.config.get('LINE_CHANNEL_ACCESS_TOKEN'),
+      channelAccessToken: this.config.getOrThrow<string>('LINE_CHANNEL_ACCESS_TOKEN'),
     });
   }
 
@@ -32,8 +32,8 @@ export class LineService {
   }
 
   private async handleTextMessage(event: any) {
-    const text: string = event.message.text.trim();
-    const replyToken: string = event.replyToken;
+    const text: string = (event.message.text as string).trim();
+    const replyToken: string = event.replyToken as string;
 
     try {
       const caseData = await this.casesService.findByCaseNumber(text);

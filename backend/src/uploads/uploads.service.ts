@@ -18,11 +18,11 @@ export class UploadsService implements OnModuleInit {
   onModuleInit() {
     this.bucket = this.config.get('MINIO_BUCKET_NAME', 'justiceflow');
     this.s3 = new S3Client({
-      endpoint: `http://${this.config.get('MINIO_ENDPOINT')}:${this.config.get('MINIO_PORT')}`,
+      endpoint: `http://${this.config.getOrThrow('MINIO_ENDPOINT')}:${this.config.getOrThrow('MINIO_PORT')}`,
       region: 'us-east-1',
       credentials: {
-        accessKeyId: this.config.get('MINIO_ROOT_USER'),
-        secretAccessKey: this.config.get('MINIO_ROOT_PASSWORD'),
+        accessKeyId: this.config.getOrThrow<string>('MINIO_ROOT_USER'),
+        secretAccessKey: this.config.getOrThrow<string>('MINIO_ROOT_PASSWORD'),
       },
       forcePathStyle: true,
     });
