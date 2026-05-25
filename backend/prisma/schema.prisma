@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OFFICER
+}
+
+enum CaseStatus {
+  RECEIVED       // รับเรื่องแล้ว
+  INVESTIGATING  // อยู่ระหว่างสืบสวน
+  PROSECUTING    // ส่งฟ้องอัยการ
+  CLOSED         // ปิดคดี
+}
+
+model Officer {
+  id           String   @id @default(cuid())
+  name         String
+  badgeNumber  String   @unique
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(OFFICER)
+  stationName  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cases       Case[]
+  attachments CaseAttachment[]
+}
+
+model Case {
+  id          String     @id @default(cuid())
+  caseNumber  String     @unique
+  title       String
+  description String
+  status      CaseStatus @default(RECEIVED)
+
+  victimName   String
+  victimPhone  String
+  victimLineId String?
+
+  officerId String
+  officer   Officer @relation(fields: [officerId], references: [id])
+
+  statusHistory Json[] @default([])
+
+  attachments CaseAttachment[]
+  lineLinks   LineVerification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CaseAttachment {
+  id           String   @id @default(cuid())
+  caseId       String
+  case         Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileType     String
+  fileSize     Int
+  storagePath  String
+  uploadedById String
+  uploadedBy   Officer  @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+}
+
+model LineVerification {
+  id         String   @id @default(cuid())
+  lineUserId String
+  caseId     String
+  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  verifiedAt DateTime @default(now())
+
+  @@unique([lineUserId, caseId])
+}
