@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Paperclip, Trash2, Upload, Loader2, Clock } from "lucide-react"
+import { ArrowLeft, Paperclip, Trash2, Upload, Loader2, Clock, Download } from "lucide-react"
 
 type Attachment = { id: string; fileName: string; fileType: string; fileSize: number; uploadedAt: string }
 type HistoryEntry = { status: string; note: string; changedAt: string }
@@ -82,6 +82,16 @@ export default function CaseDetailPage() {
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  const handleDownload = async (attachmentId: string) => {
+    if (!api) return
+    try {
+      const res = await api.get(`/cases/${id}/attachments/${attachmentId}/download`)
+      window.open(res.data.url, "_blank")
+    } catch {
+      toast.error("ดาวน์โหลดไม่สำเร็จ")
     }
   }
 
@@ -230,14 +240,24 @@ export default function CaseDetailPage() {
                           <p className="text-xs text-gray-400">{formatSize(att.fileSize)} · {new Date(att.uploadedAt).toLocaleDateString("th-TH")}</p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-red-500"
-                        onClick={() => handleDeleteAttachment(att.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                          onClick={() => handleDownload(att.id)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-400 hover:text-red-500"
+                          onClick={() => handleDeleteAttachment(att.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
