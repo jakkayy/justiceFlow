@@ -5,7 +5,6 @@ import { CaseStatus } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 class CreateCaseDto {
-  @IsString() caseNumber: string;
   @IsString() title: string;
   @IsString() description: string;
   @IsString() victimName: string;

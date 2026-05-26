@@ -50,6 +50,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 BACKEND_URL=http://localhost:3001
 AUTH_SECRET=your-random-secret-here
 AUTH_TRUST_HOST=true
+NEXT_PUBLIC_LINE_OA_ID=@your-line-oa-id
 ```
 
 ### 2. รัน Infrastructure
@@ -67,9 +68,14 @@ make db-migrate   # สร้าง tables
 make db-seed      # สร้าง admin account เริ่มต้น
 ```
 
-Admin account เริ่มต้น:
-- Email: `admin@justiceflow.local`
-- Password: `admin1234`
+Test accounts (สร้างจาก seed):
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@justiceflow.local` | `admin1234` |
+| เจ้าหน้าที่ | `somchai@justiceflow.local` | `password1234` |
+| เจ้าหน้าที่ | `wanida@justiceflow.local` | `password1234` |
+| เจ้าหน้าที่ | `prasit@justiceflow.local` | `password1234` |
 
 ### 4. รันแอปพลิเคชัน
 
@@ -119,7 +125,18 @@ make build        # Build backend
 
 ## LINE OA Integration
 
-ผู้เสียหายพิมพ์ **เลขคดี** ใน LINE OA → ระบบตอบกลับสถานะปัจจุบันของคดีทันที
+ผู้เสียหายตรวจสอบสถานะคดีผ่าน LINE OA โดยไม่ต้องลงทะเบียน
+
+**การยืนยันตัวตนครั้งแรก** — ส่งข้อความในรูปแบบ:
+```
+<หมายเลขคดี> <เบอร์โทรศัพท์>
+ตัวอย่าง: JF-2026-001 0812345678
+```
+ระบบจะเชื่อม LINE account กับทุกคดีที่ใช้เบอร์เดียวกันโดยอัตโนมัติ
+
+**หลังยืนยันแล้ว** — ส่งข้อความอะไรก็ได้เพื่อดูรายการคดีทั้งหมด หรือพิมพ์หมายเลขคดีเพื่อดูรายละเอียด
+
+**QR Code** — หน้าสร้างคดีใหม่จะแสดง QR Code ให้เจ้าหน้าที่โชว์ผู้เสียหายสแกนเพิ่มเพื่อน LINE OA ทันที
 
 ตั้งค่า Webhook URL ใน LINE Developers Console:
 ```

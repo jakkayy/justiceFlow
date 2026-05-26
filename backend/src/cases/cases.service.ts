@@ -31,8 +31,28 @@ export class CasesService {
     return c;
   }
 
-  create(data: {
-    caseNumber: string;
+  async findByCaseNumberAndPhone(caseNumber: string, phone: string) {
+    const c = await this.prisma.case.findFirst({ where: { caseNumber, victimPhone: phone } });
+    if (!c) throw new NotFoundException('Case not found');
+    return c;
+  }
+
+  findByPhone(phone: string) {
+    return this.prisma.case.findMany({ where: { victimPhone: phone }, orderBy: { createdAt: 'asc' } });
+  }
+
+  private async generateCaseNumber(): Promise<string> {
+    const year = new Date().getFullYear() + 543;
+    const suffix = `/${year}`;
+    const latest = await this.prisma.case.findFirst({
+      where: { caseNumber: { endsWith: suffix } },
+      orderBy: { caseNumber: 'desc' },
+    });
+    const next = latest ? parseInt(latest.caseNumber.replace(suffix, ''), 10) + 1 : 1;
+    return `${String(next).padStart(3, '0')}${suffix}`;
+  }
+
+  async create(data: {
     title: string;
     description: string;
     victimName: string;
@@ -40,15 +60,18 @@ export class CasesService {
     victimLineId?: string;
     officerId: string;
   }) {
-    return this.prisma.case.create({ data });
+    const caseNumber = await this.generateCaseNumber();
+    return this.prisma.case.create({ data: { ...data, caseNumber } });
   }
 
   async updateStatus(id: string, status: CaseStatus, note: string, officerId: string) {
     const c = await this.findOne(id);
+    const officer = await this.prisma.officer.findUnique({ where: { id: officerId }, select: { name: true } });
     const historyEntry = {
       status,
       note,
       changedBy: officerId,
+      changedByName: officer?.name ?? 'เจ้าหน้าที่',
       changedAt: new Date().toISOString(),
     };
     return this.prisma.case.update({
