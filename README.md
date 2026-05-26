@@ -1,1 +1,138 @@
-# justiceFlow
+# JusticeFlow
+
+ระบบติดตามความคืบหน้าคดีความสำหรับเจ้าหน้าที่ตำรวจ ผู้เสียหายสามารถตรวจสอบสถานะคดีผ่าน LINE OA และเจ้าหน้าที่สามารถบริหารจัดการคดีผ่านระบบหลังบ้าน
+
+## Tech Stack
+
+| ส่วน | เทคโนโลยี |
+|---|---|
+| Frontend | Next.js 16, Tailwind CSS, shadcn/ui, NextAuth v5 |
+| Backend | NestJS 11, Prisma 5, Passport JWT |
+| Database | PostgreSQL 16 |
+| File Storage | MinIO (S3-compatible) |
+| LINE Integration | LINE Messaging API |
+| Infrastructure | Docker Compose |
+
+## โครงสร้างโปรเจค
+
+```
+justiceFlow/
+├── frontend/          # Next.js Admin UI
+├── backend/           # NestJS API
+├── docker-compose.yml # PostgreSQL + MinIO
+├── Makefile           # Command shortcuts
+└── .env.example       # Template สำหรับ environment variables
+```
+
+## เริ่มต้นใช้งาน
+
+### ความต้องการ
+
+- Node.js >= 20.9.0
+- Docker + Docker Compose
+
+### 1. ตั้งค่า Environment Variables
+
+```bash
+cp .env.example .env
+```
+
+แก้ไขค่าใน `.env` ตามต้องการ จากนั้นสร้าง `backend/.env`:
+
+```bash
+cp backend/.env.example backend/.env   # หรือตั้งค่าเองตาม .env.example
+```
+
+และ `frontend/.env.local`:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:3001
+BACKEND_URL=http://localhost:3001
+AUTH_SECRET=your-random-secret-here
+AUTH_TRUST_HOST=true
+```
+
+### 2. รัน Infrastructure
+
+```bash
+make up
+```
+
+PostgreSQL จะรันที่ port `5433` และ MinIO ที่ port `9000` (Console: `9001`)
+
+### 3. ตั้งค่า Database
+
+```bash
+make db-migrate   # สร้าง tables
+make db-seed      # สร้าง admin account เริ่มต้น
+```
+
+Admin account เริ่มต้น:
+- Email: `admin@justiceflow.local`
+- Password: `admin1234`
+
+### 4. รันแอปพลิเคชัน
+
+```bash
+# Terminal 1 - Backend
+make backend
+
+# Terminal 2 - Frontend
+make frontend
+```
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001/api
+- MinIO Console: http://localhost:9001
+
+## Makefile Commands
+
+```bash
+make up           # เปิด Docker services
+make down         # ปิด Docker services
+make logs         # ดู logs
+
+make db-migrate   # รัน Prisma migrations
+make db-seed      # Seed ข้อมูลเริ่มต้น
+make db-reset     # Reset DB ทั้งหมด
+make db-studio    # เปิด Prisma Studio
+
+make backend      # รัน NestJS (watch mode)
+make frontend     # รัน Next.js
+make build        # Build backend
+```
+
+## API Endpoints
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| POST | `/api/auth/login` | เข้าสู่ระบบ | - |
+| GET | `/api/cases` | รายการคดีทั้งหมด | JWT |
+| POST | `/api/cases` | สร้างคดีใหม่ | JWT |
+| GET | `/api/cases/:id` | รายละเอียดคดี | JWT |
+| PATCH | `/api/cases/:id/status` | อัปเดตสถานะคดี | JWT |
+| POST | `/api/cases/:id/attachments` | อัปโหลดไฟล์ | JWT |
+| DELETE | `/api/cases/:id/attachments/:attachmentId` | ลบไฟล์ | JWT |
+| GET | `/api/officers` | รายการเจ้าหน้าที่ | JWT |
+| POST | `/api/officers` | เพิ่มเจ้าหน้าที่ | JWT |
+| POST | `/api/line/webhook` | LINE Webhook | LINE Signature |
+
+## LINE OA Integration
+
+ผู้เสียหายพิมพ์ **เลขคดี** ใน LINE OA → ระบบตอบกลับสถานะปัจจุบันของคดีทันที
+
+ตั้งค่า Webhook URL ใน LINE Developers Console:
+```
+https://your-domain.com/api/line/webhook
+```
+
+## Database Schema
+
+```
+Officer       — เจ้าหน้าที่ตำรวจ (ADMIN / OFFICER)
+Case          — ข้อมูลคดีและสถานะ
+CaseAttachment — ไฟล์แนบที่เก็บใน MinIO
+LineVerification — การยืนยันตัวตนผ่าน LINE
+```
+
+สถานะคดี: `RECEIVED` → `INVESTIGATING` → `PROSECUTING` → `CLOSED`
