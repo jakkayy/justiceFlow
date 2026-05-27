@@ -110,18 +110,18 @@ make build        # Build backend
 
 ## API Endpoints
 
-| Method | Path | Description | Auth |
+| Method | Path | Description |
 |---|---|---|---|
-| POST | `/api/auth/login` | เข้าสู่ระบบ | - |
-| GET | `/api/cases` | รายการคดีทั้งหมด | JWT |
-| POST | `/api/cases` | สร้างคดีใหม่ | JWT |
-| GET | `/api/cases/:id` | รายละเอียดคดี | JWT |
-| PATCH | `/api/cases/:id/status` | อัปเดตสถานะคดี | JWT |
-| POST | `/api/cases/:id/attachments` | อัปโหลดไฟล์ | JWT |
-| DELETE | `/api/cases/:id/attachments/:attachmentId` | ลบไฟล์ | JWT |
-| GET | `/api/officers` | รายการเจ้าหน้าที่ | JWT |
-| POST | `/api/officers` | เพิ่มเจ้าหน้าที่ | JWT |
-| POST | `/api/line/webhook` | LINE Webhook | LINE Signature |
+| POST | `/api/auth/login` | เข้าสู่ระบบ |
+| GET | `/api/cases` | รายการคดีทั้งหมด |
+| POST | `/api/cases` | สร้างคดีใหม่ |
+| GET | `/api/cases/:id` | รายละเอียดคดี |
+| PATCH | `/api/cases/:id/status` | อัปเดตสถานะคดี |
+| POST | `/api/cases/:id/attachments` | อัปโหลดไฟล์ |
+| DELETE | `/api/cases/:id/attachments/:attachmentId` | ลบไฟล์ |
+| GET | `/api/officers` | รายการเจ้าหน้าที่ | 
+| POST | `/api/officers` | เพิ่มเจ้าหน้าที่ |
+| POST | `/api/line/webhook` | LINE Webhook |
 
 ## LINE OA Integration
 
