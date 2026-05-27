@@ -111,7 +111,7 @@ make build        # Build backend
 ## API Endpoints
 
 | Method | Path | Description |
-|---|---|---|---|
+|---|---|---|
 | POST | `/api/auth/login` | เข้าสู่ระบบ |
 | GET | `/api/cases` | รายการคดีทั้งหมด |
 | POST | `/api/cases` | สร้างคดีใหม่ |
