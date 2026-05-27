@@ -38,88 +38,88 @@ export class LineService {
     const replyToken: string = event.replyToken as string;
     const lineUserId: string = event.source.userId as string;
 
-    const verifiedLinks = await this.prisma.lineVerification.findMany({
-      where: { lineUserId },
-      include: { case: true },
-      orderBy: { case: { createdAt: 'asc' } },
-    });
-
-    if (verifiedLinks.length > 0) {
-      await this.handleVerifiedUser(text, replyToken, verifiedLinks);
-    } else {
-      await this.handleUnverifiedUser(text, replyToken, lineUserId);
-    }
-  }
-
-  private async handleVerifiedUser(text: string, replyToken: string, verifiedLinks: any[]) {
-    const specificLink = verifiedLinks.find(
-      (l) => l.case.caseNumber.toUpperCase() === text.toUpperCase(),
-    );
-
-    if (specificLink) {
-      const c = specificLink.case;
-      await this.reply(replyToken, this.formatCaseDetail(c));
+    // Format 1: phone number only (9-10 digits)
+    if (/^\d{9,10}$/.test(text)) {
+      await this.handlePhoneLookup(text, replyToken, lineUserId);
       return;
     }
 
-    const caseList = verifiedLinks
-      .map((l, i) => `${i + 1}. ${l.case.caseNumber} — ${l.case.title}\n   ${STATUS_LABEL[l.case.status] ?? l.case.status}`)
+    // Format 2: case number + phone (2 tokens, second token is 9-10 digits)
+    const parts = text.split(/\s+/);
+    if (parts.length === 2 && /^\d{9,10}$/.test(parts[1])) {
+      await this.handleCaseVerification(parts[0], parts[1], replyToken, lineUserId);
+      return;
+    }
+
+    // Number selection from list (purely numeric)
+    if (/^\d+$/.test(text)) {
+      const links = await this.prisma.lineVerification.findMany({
+        where: { lineUserId },
+        include: { case: true },
+        orderBy: { case: { createdAt: 'asc' } },
+      });
+      const num = parseInt(text, 10);
+      if (links.length > 0 && num >= 1 && num <= links.length) {
+        await this.reply(replyToken, this.formatCaseDetail(links[num - 1].case));
+        return;
+      }
+    }
+
+    // Fallback: help message
+    await this.reply(replyToken, this.helpMessage());
+  }
+
+  private async handlePhoneLookup(phone: string, replyToken: string, lineUserId: string) {
+    const cases = await this.casesService.findByPhone(phone);
+    if (cases.length === 0) {
+      await this.reply(
+        replyToken,
+        `❌ ไม่พบคดีที่เชื่อมกับเบอร์ ${phone}\n\nกรุณาตรวจสอบเบอร์โทรศัพท์ของท่าน`,
+      );
+      return;
+    }
+
+    // Link all cases with this phone to the LINE user
+    await this.prisma.$transaction(
+      cases.map((c) =>
+        this.prisma.lineVerification.upsert({
+          where: { lineUserId_caseId: { lineUserId, caseId: c.id } },
+          create: { lineUserId, caseId: c.id },
+          update: {},
+        }),
+      ),
+    );
+
+    if (cases.length === 1) {
+      await this.reply(replyToken, `✅ พบคดีของคุณ\n\n${this.formatCaseDetail(cases[0])}`);
+      return;
+    }
+
+    const caseList = cases
+      .map((c, i) => `${i + 1}. ${c.caseNumber} — ${c.title}\n   ${STATUS_LABEL[c.status] ?? c.status}`)
       .join('\n\n');
 
     await this.reply(
       replyToken,
-      `📋 คดีของคุณทั้งหมด (${verifiedLinks.length} คดี)\n\n${caseList}\n\nพิมพ์หมายเลขคดีเพื่อดูรายละเอียด`,
+      `📋 พบคดีของคุณทั้งหมด ${cases.length} คดี\n\n${caseList}\n\nพิมพ์ตัวเลข (1, 2, ...) เพื่อดูรายละเอียด`,
     );
   }
 
-  private async handleUnverifiedUser(text: string, replyToken: string, lineUserId: string) {
-    const parts = text.split(/\s+/);
-    if (parts.length < 2) {
-      await this.reply(
-        replyToken,
-        'สวัสดีครับ 👮\n\nเพื่อตรวจสอบสถานะคดี กรุณาส่งข้อมูลในรูปแบบ:\n\n<หมายเลขคดี> <เบอร์โทรศัพท์>\n\nตัวอย่าง:\nJF-2026-001 0812345678',
-      );
-      return;
-    }
-
-    const [caseNumber, phone] = parts;
-
+  private async handleCaseVerification(caseNumber: string, phone: string, replyToken: string, lineUserId: string) {
     try {
-      const matched = await this.casesService.findByCaseNumberAndPhone(
-        caseNumber.toUpperCase(),
-        phone,
-      );
+      const matched = await this.casesService.findByCaseNumberAndPhone(caseNumber.toUpperCase(), phone);
 
-      const allCases = await this.casesService.findByPhone(matched.victimPhone);
+      await this.prisma.lineVerification.upsert({
+        where: { lineUserId_caseId: { lineUserId, caseId: matched.id } },
+        create: { lineUserId, caseId: matched.id },
+        update: {},
+      });
 
-      await this.prisma.$transaction(
-        allCases.map((c) =>
-          this.prisma.lineVerification.upsert({
-            where: { lineUserId_caseId: { lineUserId, caseId: c.id } },
-            create: { lineUserId, caseId: c.id },
-            update: {},
-          }),
-        ),
-      );
-
-      if (allCases.length === 1) {
-        await this.reply(
-          replyToken,
-          `✅ ยืนยันตัวตนสำเร็จ\n\n${this.formatCaseDetail(matched)}`,
-        );
-      } else {
-        const caseList = allCases
-          .map((c, i) => `${i + 1}. ${c.caseNumber} — ${c.title}\n   ${STATUS_LABEL[c.status] ?? c.status}`)
-          .join('\n\n');
-        await this.reply(
-          replyToken,
-          `✅ ยืนยันตัวตนสำเร็จ\n\nพบคดีของคุณทั้งหมด ${allCases.length} คดี:\n\n${caseList}\n\nพิมพ์หมายเลขคดีเพื่อดูรายละเอียด`,
-        );
-      }
+      await this.reply(replyToken, `✅ ยืนยันสำเร็จ\n\n${this.formatCaseDetail(matched)}`);
     } catch {
       await this.reply(
         replyToken,
-        '❌ ไม่พบข้อมูลที่ตรงกัน\n\nกรุณาตรวจสอบหมายเลขคดีและเบอร์โทรศัพท์ แล้วลองใหม่\n\nรูปแบบ: <หมายเลขคดี> <เบอร์โทรศัพท์>',
+        '❌ ไม่พบคดีที่ตรงกัน\n\nกรุณาตรวจสอบรหัสคดีและเบอร์โทรศัพท์ให้ถูกต้อง',
       );
     }
   }
@@ -132,6 +132,17 @@ export class LineService {
       `📌 เรื่อง: ${c.title}\n` +
       `🔖 สถานะ: ${statusLabel}\n` +
       `\nอัปเดตล่าสุด: ${updatedAt}`
+    );
+  }
+
+  private helpMessage(): string {
+    return (
+      'สวัสดีครับ 👮\n\n' +
+      'วิธีตรวจสอบสถานะคดี:\n\n' +
+      '1️⃣ ส่งเบอร์โทรศัพท์ของท่าน\n' +
+      'ตัวอย่าง: 0812345678\n\n' +
+      '2️⃣ ส่งรหัสคดี + เบอร์โทร\n' +
+      'ตัวอย่าง: 002/2569 0812345678'
     );
   }
 
